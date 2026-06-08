@@ -1,0 +1,27 @@
+{
+  "skill_name": "issue-to-plan",
+  "notes": "All three prompts resolve to the real open issue #7 (AI title generation for sessions) in NexWan/agent-web-chat, each via a different input modality (number / title-search / URL). Runs are executed dry-run: no branch creation, no gh writes, no push on the real repo — agents emit the proposed branch name, git commands, and comment body as files instead. Future iterations can add a bug-typed issue and an error/not-found case.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "feature-by-number",
+      "prompt": "Let's start working on issue #7.",
+      "expected_output": "Resolves issue #7 from the current repo; reads body + comments; explores backend/frontend to locate where session title generation would live; asks a few specific clarifying questions (e.g. when titles regenerate, which model, sync vs async); proposes a feat/issue-7-<slug> branch off origin/main; produces a concrete plan (problem, scope, approach, files, steps, testing, risks). Does not implement, does not post/push in the dry run.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "feature-by-title-search",
+      "prompt": "there's a github issue about auto-generating titles for chat sessions with AI — can you pick it up? get me a branch and a plan.",
+      "expected_output": "Uses gh issue list --search to find the matching issue (#7) since no number was given, confirms which issue it picked, then proceeds the same as eval-0: read, scope, clarifying questions, feat/ branch off origin/main, full plan. Resolution-by-keywords is the key thing tested here.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "feature-by-url",
+      "prompt": "scope out https://github.com/NexWan/agent-web-chat/issues/7 for me",
+      "expected_output": "Parses owner/repo/number from the URL, confirms it matches the current repo, then reads + scopes + asks questions + proposes a feat/ branch + plan as above. URL parsing and the current-repo match check are the key things tested.",
+      "files": []
+    }
+  ]
+}
