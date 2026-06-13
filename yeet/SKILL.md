@@ -1,6 +1,6 @@
 ---
 name: "yeet"
-description: "Publish local changes to GitHub by confirming scope, committing intentionally, pushing the branch, and opening a draft PR through the GitHub app from this plugin, with `gh` used only as a fallback where connector coverage is insufficient."
+description: "Publish local changes to GitHub end-to-end: confirm scope, branch if needed, stage intentionally, commit, push, and open a draft pull request — preferring the GitHub app bundled with this plugin for PR creation and falling back to `gh` when connector coverage is insufficient. Use whenever the user explicitly wants the full local-to-PR flow in one go: 'publish my changes', 'push this and open a PR', 'ship it', or 'yeet it'. Not for a standalone commit (use a commit skill) or routine git status/diff inspection."
 ---
 
 # GitHub Publish Changes
@@ -24,26 +24,33 @@ This workflow is hybrid:
 
 ## Naming conventions
 
-- Branch: `{feat|refactor|improvement|feature}/{description}` when starting from main/master/default.
-- Commit: `{description}` (terse).
-- PR title: `[fear|refactor|improvement|feature] {description}` summarizing the full diff.
+Pick one change type that best fits the diff and use it consistently across the branch, commit, and PR title. Common types: `feat` (new capability), `fix` (bug fix), `refactor` (behavior-preserving cleanup), `docs`, `chore` (deps/config/tooling), or `improvement` (an enhancement that isn't a clear `feat`).
+
+- Branch: `{type}/{short-kebab-description}` — only when starting from `main`, `master`, or the default branch.
+- Commit: `{type}: {terse description}` — conventional-commit style keeps history scannable.
+- PR title: `{type}: {description}` — summarize the whole diff, not just the latest commit.
 
 ## Workflow
 
 1. Confirm intended scope.
    - Run `git status -sb` and inspect the diff before staging.
-   - If the working tree contains unrelated changes, do not default to `git add -A`. Ask the user which files belong in the PR.
+   - If the working tree contains unrelated changes, do not default to `git add -A`. With a human in the loop, ask which files belong in the PR. Running autonomously, infer scope from the request, stage only those files by explicit path, and state what you included and excluded — the goal is to never sweep in unrelated work silently, not to halt.
 2. Determine the branch strategy.
-   - If on `main`, `master`, or another default branch, create `{feat|refactor|improvement|feature}/{description}`.
+   - If on `main`, `master`, or another default branch, create `{type}/{short-kebab-description}` (see Naming conventions).
    - Otherwise stay on the current branch.
 3. Stage only the intended changes.
    - Prefer explicit file paths when the worktree is mixed.
    - Use `git add -A` only when the user has confirmed the whole worktree belongs in scope.
-4. Commit tersely with the confirmed description.
-5. Run the most relevant checks available if they have not already been run.
-   - If checks fail due to missing dependencies or tools, install what is needed and rerun once.
+4. Commit with the chosen change type and a terse description (see Naming conventions) — e.g. `git commit -m "fix: handle empty diff"`.
+5. Run the checks that matter for this diff before pushing, if they haven't run already.
+   - Discover them from the project instead of guessing: `package.json` scripts (`test`, `lint`, `typecheck`, `build`), a `Makefile`, a `pre-commit` config, or the workflows under `.github/workflows`.
+   - When the change is a fix, reproduce the failing check first so the PR can cite a concrete before/after.
+   - Run only what's relevant to what changed — a docs-only edit doesn't need the full test suite.
+   - If a check fails because a tool or dependency is missing, install it and rerun once. If it still fails, surface the failure instead of pushing past it.
+   - Don't block the push on pre-existing failures unrelated to this change; call them out in the summary instead.
 6. Push with tracking: `git push -u origin $(git branch --show-current)`.
 7. Open a draft PR.
+   - Both PR paths below need a remote that resolves to GitHub. If none does (for example `gh repo view` reports no GitHub host), don't force it: the branch is already pushed, so report that the PR can't be opened without a GitHub remote and stop, per Write Safety.
    - Prefer the GitHub app from this plugin for PR creation after the push succeeds.
    - Derive `repository_full_name` from the remote, for example by normalizing `git remote get-url origin` or by using `gh repo view --json nameWithOwner`.
    - Derive `head_branch` from `git branch --show-current`.
@@ -56,16 +63,16 @@ This workflow is hybrid:
 ## Write Safety
 
 - Never stage unrelated user changes silently.
-- Never push without confirming scope when the worktree is mixed.
+- Never push a mixed worktree without first establishing scope — confirmed by the user, or (when autonomous) inferred from the request and stated explicitly (see step 1).
 - Default to a draft PR unless the user explicitly asks for a ready-for-review PR.
 - If the repository does not appear to be connected to an accessible GitHub remote, stop and explain the blocker before making assumptions.
 
 ## PR Body Expectations
 
-The PR description should use real Markdown prose and cover:
+The PR description should use real Markdown prose and cover the points that apply (a feature PR doesn't need a root-cause line):
 
 - what changed
 - why it changed
 - the user or developer impact
-- the root cause when the PR is a fix
+- the root cause, when the PR is a fix
 - the checks used to validate it
